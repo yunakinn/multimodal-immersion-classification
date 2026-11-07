@@ -10,7 +10,7 @@ Classifying immersion states from EEG, GSR, and PPG signals with a multimodal ne
 
 This project explores how complementary physiological signals can be combined for binary immersion classification. Each modality has its own encoder; an attention module combines the resulting feature vectors before classification.
 
-My work included designing the fusion model and preparing a preprocessing pipeline for signal segmentation and cross-modal standardization. This repository contains the model, a loader for preprocessed arrays, and training code; it does not include the original signal collection or preprocessing workflow.
+I designed the fusion model and prepared a preprocessing pipeline for signal segmentation and cross-modal standardization. This repository contains the model, a loader for preprocessed arrays, and training code; it does not include the original signal collection or preprocessing workflow.
 
 ## Reported Results
 
@@ -49,7 +49,7 @@ flowchart LR
 - **Fusion:** a shared scoring network assigns a weight to each modality feature; softmax normalizes the three weights for each sample.
 - **Training:** Adam, binary cross-entropy with logits, and early stopping on validation loss. Predictions use a sigmoid threshold of 0.5.
 
-The EEG branch is inspired by EEGNet; it is not presented as an exact reproduction of the original architecture.
+The EEG branch adapts ideas from EEGNet rather than reproducing its architecture exactly.
 
 ## Data Preparation
 
@@ -73,13 +73,17 @@ data/
     └── test.txt
 ```
 
-Each split file contains one exact filename (including `.npy`) or class-relative filename per line. Use `--split-kind subject` for exact participant IDs instead; the default subject pattern reads the prefix before `_` or `-`. Set `--subject-pattern` explicitly for other naming conventions. The loader also accepts CSV, JSON, and NumPy split files and can expand stacked windows within a file. Labels are read from the `0` and `1` folders. Use `[channels, time]` for one EEG window, `[time]` or `[1, time]` for GSR/PPG, and add a leading window dimension for stacked files. Time-first and extra singleton dimensions must be converted explicitly beforehand. Missing paired files cause an error.
+Each split file contains one exact filename (including `.npy`) or class-relative filename per line. The loader also accepts CSV, JSON, and NumPy split files. Labels come from the `0` and `1` folders; missing paired files cause an error.
+
+For participant IDs, use `--split-kind subject`. The default subject pattern reads the prefix before `_` or `-`; set `--subject-pattern` for other naming conventions.
+
+Use `[channels, time]` for one EEG window and `[time]` or `[1, time]` for GSR/PPG. Add a leading window dimension for stacked files. Convert time-first arrays and extra singleton dimensions explicitly before loading.
 
 Use explicit, non-overlapping split lists. File overlap is rejected before training. For unseen-participant evaluation, use subject split lists or enable `--check-subjects` with a matching subject pattern; the program rejects overlapping participant IDs. The original label protocol and participant allocation are not included.
 
 ## Getting Started
 
-Use Python 3.10 or later for the type syntax in the current source.
+Use Python 3.10 or later.
 
 ```bash
 git clone https://github.com/yunakinn/multimodal-immersion-classification.git
@@ -110,7 +114,7 @@ CUDA is used when available; otherwise the script runs on CPU. Arrays are memory
 - `outputs/metrics.json`: run arguments, split sizes, learning history, and test metrics.
 - Terminal: test accuracy, confusion matrix, and per-class metrics.
 
-For notebook exploration, install Jupyter separately and open `train.ipynb`.
+For notebook exploration, install Jupyter separately and open `train.ipynb`. To run the tests, install `pytest` and run `python -m pytest`.
 
 ## Repository Guide
 
@@ -123,8 +127,4 @@ For notebook exploration, install Jupyter separately and open `train.ipynb`.
 
 ## Limitations
 
-The reported results do not establish a benefit over single-modality baselines or generalization to unseen participants. Those conclusions require explicit ablations and a documented split protocol. This is an experimental immersion classifier, not a clinical assessment tool.
-
-
-
-Run the data-isolation, memory, and shape regression tests with `python -m pip install pytest` followed by `python -m pytest`.
+Single-modality comparisons and evaluation on unseen participants are not reported.
