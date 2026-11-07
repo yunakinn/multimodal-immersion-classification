@@ -12,27 +12,11 @@ def to_channels_first(x: torch.Tensor) -> torch.Tensor:
         return x.unsqueeze(1)
 
     if x.dim() == 3:
-        batch, dim1, dim2 = x.shape
-        if dim1 > dim2 and dim2 <= 64:
-            return x.transpose(1, 2)
         return x
-
-    if x.dim() == 4:
-        if x.size(1) == 1:
-            return x.squeeze(1)
-        if x.size(-1) == 1:
-            return x.squeeze(-1)
-
-        batch = x.size(0)
-        time = x.size(-1)
-        return x.reshape(batch, -1, time)
-
-    if x.dim() > 4:
-        batch = x.size(0)
-        time = x.size(-1)
-        return x.reshape(batch, -1, time)
-
-    raise ValueError(f"Expected input with at least 2 dimensions, got shape {tuple(x.shape)}")
+    raise ValueError(
+        f"Use [batch, time] or [batch, channels, time]; got {tuple(x.shape)}. "
+        "Transpose or reshape preprocessed arrays explicitly before training."
+    )
 
 
 class EEGNetEncoder(nn.Module):

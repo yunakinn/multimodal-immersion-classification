@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
 from pathlib import Path
 
@@ -12,7 +13,7 @@ import torch.optim as optim
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from torch.utils.data import DataLoader
 
-from Dataset import BiosignalDataset
+from dataset import BiosignalDataset, validate_split_isolation
 from model import FusionModel
 
 
@@ -163,7 +164,7 @@ def load_checkpoint(path: Path, device: torch.device):
         return torch.load(path, map_location=device)
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train a multimodal EEG-GSR-PPG immersion classifier."
     )
@@ -176,11 +177,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
-    return parser.parse_args()
+    parser.add_argument("--split-kind", choices=["file", "subject"], default="file")
+    parser.add_argument("--subject-pattern", default=r"^(?P<subject>[^_-]+)[_-]")
+    parser.add_argument("--check-subjects", action="store_true", help="Require participant-disjoint splits using subject-pattern.")
+    return parser.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv=None) -> None:
+    args = parse_args(argv)
+    if args.epochs < 1 or args.batch_size < 1 or args.test_batch_size < 1 or args.patience < 1 or args.lr <= 0:
+        raise ValueError("Epochs, batch sizes, patience, and learning rate must be positive.")
     set_seed(args.seed)
 
     device = get_device()
@@ -190,9 +196,11 @@ def main() -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    train_dataset = BiosignalDataset(args.data_dir, split="train", split_path=args.split_dir)
-    val_dataset = BiosignalDataset(args.data_dir, split="val", split_path=args.split_dir)
-    test_dataset = BiosignalDataset(args.data_dir, split="test", split_path=args.split_dir)
+    train_dataset = BiosignalDataset(args.data_dir, split="train", split_path=args.split_dir, split_kind=args.split_kind, subject_pattern=args.subject_pattern)
+    val_dataset = BiosignalDataset(args.data_dir, split="val", split_path=args.split_dir, split_kind=args.split_kind, subject_pattern=args.subject_pattern)
+    test_dataset = BiosignalDataset(args.data_dir, split="test", split_path=args.split_dir, split_kind=args.split_kind, subject_pattern=args.subject_pattern)
+
+    validate_split_isolation([train_dataset, val_dataset, test_dataset], check_subjects=args.check_subjects or args.split_kind == "subject")
 
     train_loader = make_loader(train_dataset, args.batch_size, shuffle=True, device=device)
     val_loader = make_loader(val_dataset, args.batch_size, shuffle=False, device=device)
@@ -246,9 +254,18 @@ def main() -> None:
     y_true, y_prob = predict(model, test_loader, device)
     y_pred = (y_prob >= 0.5).astype(int)
 
+    (output_dir / "metrics.json").write_text(json.dumps({
+        "config": vars(args),
+        "split_sizes": {"train": len(train_dataset), "val": len(val_dataset), "test": len(test_dataset)},
+        "test_accuracy": float(accuracy_score(y_true, y_pred)),
+        "classification_report": classification_report(y_true, y_pred, labels=[0, 1], output_dict=True, zero_division=0),
+        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=[0, 1]).tolist(),
+        "history": history,
+    }, indent=2), encoding="utf-8")
+
     print("\nTest Accuracy:", accuracy_score(y_true, y_pred))
     print("\nConfusion Matrix\n", confusion_matrix(y_true, y_pred))
-    print("\nClassification Report\n", classification_report(y_true, y_pred, digits=4))
+    print("\nClassification Report\n", classification_report(y_true, y_pred, digits=4, zero_division=0))
 
 
 if __name__ == "__main__":

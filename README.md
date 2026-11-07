@@ -73,9 +73,9 @@ data/
     └── test.txt
 ```
 
-Each split file can contain one filename per line. The loader also accepts CSV, JSON, and NumPy split files and can expand stacked windows within a file. Labels are read from the `0` and `1` folders.
+Each split file contains one exact filename (including `.npy`) or class-relative filename per line. Use `--split-kind subject` for exact participant IDs instead; the default subject pattern reads the prefix before `_` or `-`. Set `--subject-pattern` explicitly for other naming conventions. The loader also accepts CSV, JSON, and NumPy split files and can expand stacked windows within a file. Labels are read from the `0` and `1` folders. Use `[channels, time]` for one EEG window, `[time]` or `[1, time]` for GSR/PPG, and add a leading window dimension for stacked files. Time-first and extra singleton dimensions must be converted explicitly beforehand. Missing paired files cause an error.
 
-Use explicit, non-overlapping split lists. For evaluation on unseen participants, construct participant-disjoint splits before running: the loader selects files but does not generate or verify participant-disjoint splits. The original label protocol and participant allocation are not included.
+Use explicit, non-overlapping split lists. File overlap is rejected before training. For unseen-participant evaluation, use subject split lists or enable `--check-subjects` with a matching subject pattern; the program rejects overlapping participant IDs. The original label protocol and participant allocation are not included.
 
 ## Getting Started
 
@@ -101,12 +101,13 @@ python train.py \
   --seed 42
 ```
 
-CUDA is used when available; otherwise the script runs on CPU. The default loader caches the selected arrays in memory.
+CUDA is used when available; otherwise the script runs on CPU. Arrays are memory-mapped by default; only the requested window is copied into a tensor.
 
 ### Outputs
 
 - `outputs/best_model.pt`: checkpoint selected by validation loss.
 - `outputs/learning_curves.png`: training and validation curves.
+- `outputs/metrics.json`: run arguments, split sizes, learning history, and test metrics.
 - Terminal: test accuracy, confusion matrix, and per-class metrics.
 
 For notebook exploration, install Jupyter separately and open `train.ipynb`.
@@ -116,7 +117,7 @@ For notebook exploration, install Jupyter separately and open `train.ipynb`.
 | File | Purpose |
 | :--- | :--- |
 | [model.py](model.py) | Modality encoders, attention fusion, and classifier |
-| [Dataset.py](Dataset.py) | Paired array loading and split selection |
+| [dataset.py](dataset.py) | Paired array loading and split selection |
 | [train.py](train.py) | Training, checkpointing, plots, and test evaluation |
 | [train.ipynb](train.ipynb) | Notebook experiment workflow |
 
@@ -125,3 +126,5 @@ For notebook exploration, install Jupyter separately and open `train.ipynb`.
 The reported results do not establish a benefit over single-modality baselines or generalization to unseen participants. Those conclusions require explicit ablations and a documented split protocol. This is an experimental immersion classifier, not a clinical assessment tool.
 
 
+
+Run the data-isolation, memory, and shape regression tests with `python -m pip install pytest` followed by `python -m pytest`.
