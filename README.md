@@ -4,13 +4,31 @@ Classifying immersion states from EEG, GSR, and PPG signals with a multimodal ne
 
 **Biosignal analysis · Multimodal learning · PyTorch**
 
-[Model](model.py) · [Data loader](Dataset.py) · [Training script](train.py) · [Notebook](train.ipynb)
+[Results](#reported-results) · [Model](#model) · [Run](#getting-started) · [Notebook](train.ipynb)
 
 ## Overview
 
 This project explores how complementary physiological signals can be combined for binary immersion classification. Each modality has its own encoder; an attention module combines the resulting feature vectors before classification.
 
 My work included designing the fusion model and preparing a preprocessing pipeline for signal segmentation and cross-modal standardization. This repository contains the model, a loader for preprocessed arrays, and training code; it does not include the original signal collection or preprocessing workflow.
+
+## Reported Results
+
+The following values are retained from the original experiment report.
+
+| Split | Signal windows | Accuracy |
+| :--- | ---: | ---: |
+| Train | 79,968 | 77.6% |
+| Validation | 7,995 | 79.7% |
+| Test | 15,996 | **79.1%** |
+
+| Test class | Precision | Recall | F1 |
+| :--- | ---: | ---: | ---: |
+| 0 | 0.7663 | 0.8696 | 0.8147 |
+| 1 | 0.8288 | 0.7044 | 0.7615 |
+| Macro average | 0.7976 | 0.7870 | 0.7881 |
+
+These are historical results, not a fresh evaluation of the current code. The raw data, original split lists, and trained checkpoint are not distributed here, so the reported scores cannot be independently reproduced from this repository alone.
 
 ## Model
 
@@ -32,24 +50,6 @@ flowchart LR
 - **Training:** Adam, binary cross-entropy with logits, and early stopping on validation loss. Predictions use a sigmoid threshold of 0.5.
 
 The EEG branch is inspired by EEGNet; it is not presented as an exact reproduction of the original architecture.
-
-## Reported Results
-
-The following values are retained from the original experiment report.
-
-| Split | Signal windows | Accuracy |
-| :--- | ---: | ---: |
-| Train | 79,968 | 77.6% |
-| Validation | 7,995 | 79.7% |
-| Test | 15,996 | **79.1%** |
-
-| Test class | Precision | Recall | F1 |
-| :--- | ---: | ---: | ---: |
-| 0 | 0.7663 | 0.8696 | 0.8147 |
-| 1 | 0.8288 | 0.7044 | 0.7615 |
-| Macro average | 0.7976 | 0.7870 | 0.7881 |
-
-These are historical results, not a fresh evaluation of the current code. The raw data, original split lists, and trained checkpoint are not distributed here, so the reported scores cannot be independently reproduced from this repository alone.
 
 ## Data Preparation
 
@@ -123,4 +123,5 @@ For notebook exploration, install Jupyter separately and open `train.ipynb`.
 ## Limitations
 
 The reported results do not establish a benefit over single-modality baselines or generalization to unseen participants. Those conclusions require explicit ablations and a documented split protocol. This is an experimental immersion classifier, not a clinical assessment tool.
+
 
