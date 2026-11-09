@@ -1,57 +1,63 @@
+<div align="center">
+
 # Multimodal Immersion Classification
 
-Classifying immersion states from EEG, GSR, and PPG signals with a multimodal neural network.
+**Learning immersion states from EEG, GSR, and PPG**
 
-**Biosignal analysis · Multimodal learning · PyTorch**
+Biosignal analysis &nbsp;·&nbsp; Modality attention &nbsp;·&nbsp; PyTorch
 
-[Results](#reported-results) · [Model](#model) · [Run](#getting-started) · [Notebook](train.ipynb)
+[Architecture](#model) · [Performance](#reported-results) · [Quick start](#getting-started) · [Notebook](train.ipynb)
 
-## Overview
+</div>
 
-This project explores how complementary physiological signals can be combined for binary immersion classification. Each modality has its own encoder; an attention module combines the resulting feature vectors before classification.
+---
 
-I designed the fusion model and prepared a preprocessing pipeline for signal segmentation and cross-modal standardization. This repository contains the model, a loader for preprocessed arrays, and training code; it does not include the original signal collection or preprocessing workflow.
+## At a Glance
+
+| Task | Inputs | Fusion | Reported test accuracy |
+| :--- | :--- | :--- | ---: |
+| Binary immersion classification | EEG + GSR + PPG | Sample-dependent modality attention | **79.1%** |
+
+This project explores how complementary physiological signals can be combined for binary immersion classification. Each modality has its own encoder; attention weights the resulting features before classification.
+
+**My contribution:** I designed the fusion model and prepared a preprocessing pipeline for signal segmentation and cross-modal standardization. This repository contains the model, a loader for preprocessed arrays, and training code. The original signal collection and preprocessing workflow are not included.
+
+## Model
+
+![Model architecture: separate EEG, GSR and PPG encoders produce 128-dimensional features, combined by modality attention and a binary classifier.](assets/readme/architecture.svg)
+
+| Stage | Implementation |
+| :--- | :--- |
+| EEG encoder | Temporal convolutions, grouped convolution, pooling, and feature projection; inspired by EEGNet |
+| GSR / PPG encoders | Separate 1D CNNs with the same architecture and independent parameters |
+| Attention fusion | Shared scoring network → softmax across modalities → weighted sum |
+| Classification | 128 → 64 → 1, with ReLU and dropout; sigmoid threshold 0.5 |
+| Training | Adam · binary cross-entropy with logits · early stopping on validation loss |
+
+The diagram uses the default 128-dimensional features in [model.py](model.py). The EEG branch adapts EEGNet ideas rather than reproducing its architecture exactly.
 
 ## Reported Results
 
-The following values are retained from the original experiment report.
+![Historical split accuracies: train 77.6%, validation 79.7%, test 79.1%. Test macro F1: 0.7881.](assets/readme/performance.svg)
 
 | Split | Signal windows | Accuracy |
 | :--- | ---: | ---: |
 | Train | 79,968 | 77.6% |
 | Validation | 7,995 | 79.7% |
-| Test | 15,996 | **79.1%** |
+| **Test** | **15,996** | **79.1%** |
 
 | Test class | Precision | Recall | F1 |
 | :--- | ---: | ---: | ---: |
 | 0 | 0.7663 | 0.8696 | 0.8147 |
 | 1 | 0.8288 | 0.7044 | 0.7615 |
-| Macro average | 0.7976 | 0.7870 | 0.7881 |
+| **Macro average** | **0.7976** | **0.7870** | **0.7881** |
 
-These are historical results, not a fresh evaluation of the current code. The raw data, original split lists, and trained checkpoint are not distributed here, so the reported scores cannot be independently reproduced from this repository alone.
-
-## Model
-
-```mermaid
-flowchart LR
-    E["EEG"] --> EE["EEGNet-inspired encoder"]
-    G["GSR"] --> GE["1D CNN encoder"]
-    P["PPG"] --> PE["1D CNN encoder"]
-    EE --> F["128-dimensional modality features"]
-    GE --> F
-    PE --> F
-    F --> A["Sample-dependent modality attention"]
-    A --> C["Binary classifier"]
-```
-
-- **EEG:** temporal convolutions, a grouped convolution, pooling, and a feature projection.
-- **GSR and PPG:** separate CNN encoders with the same architecture and independent parameters.
-- **Fusion:** a shared scoring network assigns a weight to each modality feature; softmax normalizes the three weights for each sample.
-- **Training:** Adam, binary cross-entropy with logits, and early stopping on validation loss. Predictions use a sigmoid threshold of 0.5.
-
-The EEG branch adapts ideas from EEGNet rather than reproducing its architecture exactly.
+> **Result provenance:** These values are retained from the original experiment report, not a fresh evaluation of the current code. Raw data, original split lists, and the trained checkpoint are not distributed here, so the scores cannot be independently reproduced from this repository alone.
 
 ## Data Preparation
+
+<details>
+<summary><strong>Array format, split lists, and participant checks</strong></summary>
 
 The reported experiment used 14-channel EEG, single-channel GSR and PPG, and windows of 128 samples. Supply preprocessed NumPy arrays with matching filenames across modalities:
 
@@ -80,6 +86,8 @@ For participant IDs, use `--split-kind subject`. The default subject pattern rea
 Use `[channels, time]` for one EEG window and `[time]` or `[1, time]` for GSR/PPG. Add a leading window dimension for stacked files. Convert time-first arrays and extra singleton dimensions explicitly before loading.
 
 Use explicit, non-overlapping split lists. File overlap is rejected before training. For unseen-participant evaluation, use subject split lists or enable `--check-subjects` with a matching subject pattern; the program rejects overlapping participant IDs. The original label protocol and participant allocation are not included.
+
+</details>
 
 ## Getting Started
 
@@ -128,3 +136,4 @@ For notebook exploration, install Jupyter separately and open `train.ipynb`. To 
 ## Limitations
 
 Single-modality comparisons and evaluation on unseen participants are not reported.
+
