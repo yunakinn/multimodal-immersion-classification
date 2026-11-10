@@ -1,16 +1,11 @@
-<div align="center">
-
 # Multimodal Immersion Classification
 
 **Learning immersion states from EEG, GSR, and PPG**
 
-Biosignal analysis &nbsp;·&nbsp; Modality attention &nbsp;·&nbsp; PyTorch
+Biosignal analysis · Modality attention · PyTorch
 
 [Architecture](#model) · [Performance](#reported-results) · [Quick start](#getting-started) · [Notebook](train.ipynb)
 
-</div>
-
----
 
 ## At a Glance
 
@@ -24,7 +19,17 @@ This project explores how complementary physiological signals can be combined fo
 
 ## Model
 
-![Model architecture: separate EEG, GSR and PPG encoders produce 128-dimensional features, combined by modality attention and a binary classifier.](assets/readme/architecture.svg)
+```mermaid
+flowchart LR
+    EEG["EEG · 14 channels"] --> E["EEGNet-inspired encoder"]
+    GSR["GSR · 1 channel"] --> G["1D CNN"]
+    PPG["PPG · 1 channel"] --> P["1D CNN"]
+    E --> A["Modality attention"]
+    G --> A
+    P --> A
+    A --> F["Weighted sum · 128-d"]
+    F --> C["Binary classifier"]
+```
 
 | Stage | Implementation |
 | :--- | :--- |
@@ -34,11 +39,9 @@ This project explores how complementary physiological signals can be combined fo
 | Classification | 128 → 64 → 1, with ReLU and dropout; sigmoid threshold 0.5 |
 | Training | Adam · binary cross-entropy with logits · early stopping on validation loss |
 
-The diagram uses the default 128-dimensional features in [model.py](model.py). The EEG branch adapts EEGNet ideas rather than reproducing its architecture exactly.
+Each encoder produces a 128-dimensional feature vector by default; see [model.py](model.py). The EEG branch adapts EEGNet ideas rather than reproducing its architecture exactly.
 
 ## Reported Results
-
-![Historical split accuracies: train 77.6%, validation 79.7%, test 79.1%. Test macro F1: 0.7881.](assets/readme/performance.svg)
 
 | Split | Signal windows | Accuracy |
 | :--- | ---: | ---: |
@@ -136,4 +139,5 @@ For notebook exploration, install Jupyter separately and open `train.ipynb`. To 
 ## Limitations
 
 Single-modality comparisons and evaluation on unseen participants are not reported.
+
 
