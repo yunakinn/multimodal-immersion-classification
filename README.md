@@ -127,6 +127,8 @@ CUDA is used when available; otherwise the script runs on CPU. Arrays are memory
 
 For notebook exploration, install Jupyter separately and open `train.ipynb`. To run the tests, install `pytest` and run `python -m pytest`.
 
+[GitHub Actions](https://github.com/yunakinn/multimodal-immersion-classification/actions/workflows/tests.yml) runs the existing tests on CPU for every push and pull request. Tests cover data loading, split isolation, model shapes, and a tiny training run using temporary test fixtures; they do not reproduce the reported research scores.
+
 ## Repository Guide
 
 | File | Purpose |
