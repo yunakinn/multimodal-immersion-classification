@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 from pathlib import Path
 
@@ -67,6 +68,9 @@ def run_train_epoch(
         logits, _ = model(eeg, gsr, ppg)
         loss = criterion(logits, label)
 
+        if not torch.isfinite(loss).all().item():
+            raise ValueError("Non-finite training loss; stopping before backward and optimizer step.")
+
         loss.backward()
         optimizer.step()
 
@@ -99,6 +103,9 @@ def run_eval_epoch(
 
         logits, _ = model(eeg, gsr, ppg)
         loss = criterion(logits, label)
+
+        if not torch.isfinite(loss).all().item():
+            raise ValueError("Non-finite validation loss; stopping evaluation.")
 
         batch_size = label.size(0)
         total_loss += loss.item() * batch_size
@@ -185,7 +192,7 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main(argv=None) -> None:
     args = parse_args(argv)
-    if args.epochs < 1 or args.batch_size < 1 or args.test_batch_size < 1 or args.patience < 1 or args.lr <= 0:
+    if args.epochs < 1 or args.batch_size < 1 or args.test_batch_size < 1 or args.patience < 1 or not math.isfinite(args.lr) or args.lr <= 0:
         raise ValueError("Epochs, batch sizes, patience, and learning rate must be positive.")
     set_seed(args.seed)
 
@@ -222,10 +229,15 @@ def main(argv=None) -> None:
 
     best_val_loss = float("inf")
     early_stop_counter = 0
+    checkpoint_saved = False
 
     for epoch in range(1, args.epochs + 1):
         train_loss, train_acc = run_train_epoch(model, train_loader, criterion, optimizer, device)
+        if not math.isfinite(train_loss):
+            raise ValueError(f"Non-finite training loss at epoch {epoch}; test evaluation aborted.")
         val_loss, val_acc = run_eval_epoch(model, val_loader, criterion, device)
+        if not math.isfinite(val_loss):
+            raise ValueError(f"Non-finite validation loss at epoch {epoch}; test evaluation aborted.")
 
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)
@@ -242,11 +254,15 @@ def main(argv=None) -> None:
             best_val_loss = val_loss
             early_stop_counter = 0
             torch.save(model.state_dict(), checkpoint_path)
+            checkpoint_saved = True
         else:
             early_stop_counter += 1
             if early_stop_counter >= args.patience:
                 print("Early stopping triggered.")
                 break
+
+    if not checkpoint_saved:
+        raise RuntimeError("No checkpoint was saved during this run; refusing to load an older checkpoint.")
 
     save_learning_curves(history, curve_path)
 
