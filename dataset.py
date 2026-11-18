@@ -166,6 +166,7 @@ class BiosignalDataset(Dataset):
 
     def _build_index(self) -> list[tuple[Path, Path, Path, float, int | None]]:
         items: list[tuple[Path, Path, Path, float, int | None]] = []
+        matched_keys: set[str] = set()
 
         for label_name in ("0", "1"):
             label = float(label_name)
@@ -182,6 +183,10 @@ class BiosignalDataset(Dataset):
             )
 
             for filename in filenames:
+                if self.split_kind == "subject":
+                    matched_keys.add(self.subject_id(filename))
+                else:
+                    matched_keys.update(self.split_keys & {filename, f"{label_name}/{filename}"})
                 eeg_path = eeg_dir / filename
                 gsr_path = gsr_dir / filename
                 ppg_path = ppg_dir / filename
@@ -198,6 +203,12 @@ class BiosignalDataset(Dataset):
                         items.append((eeg_path, gsr_path, ppg_path, label, window_idx))
                 else:
                     items.append((eeg_path, gsr_path, ppg_path, label, None))
+
+        unmatched_keys = self.split_keys - matched_keys
+        if unmatched_keys:
+            raise ValueError(
+                f"Unmatched entries in {self.split} split list: {sorted(unmatched_keys)}"
+            )
 
         if not items:
             raise RuntimeError(

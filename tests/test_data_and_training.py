@@ -1,4 +1,5 @@
 import numpy as np
+import json
 import pytest
 import torch
 from unittest.mock import Mock
@@ -118,3 +119,32 @@ def test_non_finite_learning_rate_is_rejected_before_data_loading(tmp_path, rate
     with pytest.raises(ValueError, match="learning rate"):
         main(["--lr=" + rate, "--output-dir", str(tmp_path / "unused")])
     assert not (tmp_path / "unused").exists()
+
+
+@pytest.mark.parametrize("kind,known,missing", [
+    ("file", "S01_session.npy", "missing.npy"),
+    ("file", "0/S01_session.npy", "0/missing.npy"),
+    ("subject", "S01", "S99"),
+])
+@pytest.mark.parametrize("extension", ["txt", "csv", "json", "npy"])
+def test_unmatched_split_entries_are_not_silently_dropped(tmp_path, kind, known, missing, extension):
+    fixture_data(tmp_path)
+    split = tmp_path / f"selected.{extension}"
+    keys = [known, missing]
+    if extension == "json":
+        split.write_text(json.dumps({"train": keys}))
+    elif extension == "npy":
+        np.save(split, np.asarray(keys))
+    else:
+        split.write_text("\n".join(keys) + "\n")
+    with pytest.raises(ValueError, match="Unmatched entries in train split") as error:
+        BiosignalDataset(tmp_path, "train", split, split_kind=kind, verbose=False)
+    assert missing in str(error.value)
+
+
+def test_class_relative_split_does_not_require_both_classes(tmp_path):
+    splits = fixture_data(tmp_path)
+    (splits / "train.txt").write_text("0/S01_session.npy\n")
+    selected = BiosignalDataset(tmp_path, "train", splits, verbose=False)
+    assert len(selected) == 3
+    assert all(item[3] == 0 for item in selected.index)
